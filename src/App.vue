@@ -1,49 +1,53 @@
-<script setup>
-import { ref, reactive } from 'vue'; 
-const ticker = ref('');
-const selected = ref(null);
-const tickers = ref([]);
-const graph = ref([])
+<script>
 
-function createNewTicker() {
-  const currentTicker = {name: this.ticker, price: '-'}
-  this.tickers.push(currentTicker);
-  setInterval(async () => {
-    const f = await fetch(
-      `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=6ad143f5e897da3cbdfaccb63647a2b2192b4849cc37d69ce7ba61dac5fb6662`
-      );
+export default {
+  data() {
+    return {
+      ticker: '',
+      tickers: [],
+      selected: null,
+      graph: [],
+    }
+  },
+  
+  methods: {
+    createNewTicker() {
+      const currentTicker = {name: this.ticker, price: '-'}
+      this.tickers.push(currentTicker);
+      setInterval(async () => {
+        const f = await fetch(
+        `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=6ad143f5e897da3cbdfaccb63647a2b2192b4849cc37d69ce7ba61dac5fb6662`
+        );
       
       const data = await f.json();
       
       this.tickers.find(t => t.name === currentTicker.name).price = 
         data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
+  
       if (this.selected?.name === currentTicker.name) {
         this.graph.push(data.USD)
       }
+    }, 5000)
+    this.ticker='';
+    },
+  
+    selectTicker(ticker) {
+        this.selected = ticker;
+        this.graph = [];
+    },
 
-  }, 5000)
-  this.ticker=''
+    deleteTicker(tickerToDelete) {
+      this.tickers = this.tickers.filter(t => t !== tickerToDelete);
+    },
+
+    normalizeGraph() {
+      const maxValue = Math.max(...this.graph);
+    const minValue = Math.min(...this.graph);
+    return this.graph.map(
+    price => 5 + ((price - minValue) * 95) / (maxValue - minValue))
+    }
+  }
 }
-
-function selectTicker(ticker) {
-  this.selected = ticker;
-  this.graph = [];
-}
-
-function deleteTicker(tickerToDelete) {
-  // alert(`delete ${tickerToDelete.name}`)
-  this.tickers = this.tickers.filter(t => t !== tickerToDelete)
-}
-
-function normalizeGraph() {
-  const maxValue = Math.max(...this.graph);
-  const minValue = Math.min(...this.graph);
-  return this.graph.map(
-    price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
-  )
-}
-
 
 </script>
 
