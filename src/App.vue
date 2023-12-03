@@ -7,12 +7,23 @@ export default {
       tickers: [],
       selected: null,
       graph: [],
+      tickerExists: false,
+    }
+  },
+
+  watch: {
+    ticker(newTickerValue) {
+      this.tickerExists = false
     }
   },
   
   methods: {
     createNewTicker() {
-      const currentTicker = {name: this.ticker, price: '-'}
+      const currentTicker = {name: this.ticker, price: '-'};
+      if (this.tickers.some(obj => obj.name === this.ticker)) {
+        this.tickerExists = true;
+        return
+      } 
       this.tickers.push(currentTicker);
       setInterval(async () => {
         const f = await fetch(
@@ -41,11 +52,11 @@ export default {
     },
 
     normalizeGraph() {
-      const maxValue = Math.max(...this.graph);
+    const maxValue = Math.max(...this.graph);
     const minValue = Math.min(...this.graph);
     return this.graph.map(
     price => 5 + ((price - minValue) * 95) / (maxValue - minValue))
-    }
+    },
   }
 }
 
@@ -85,7 +96,7 @@ export default {
               CHD
             </span>
           </div>
-          <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+          <div v-if="tickerExists" class="text-sm text-red-600">Такой тикер уже добавлен</div>
         </div>
       </div>
       <button
