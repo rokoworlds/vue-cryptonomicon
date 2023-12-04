@@ -8,13 +8,41 @@ export default {
       selected: null,
       graph: [],
       tickerExists: false,
+      tickersList: [],
+      filter: '',
+      page: 1,
+      hasNextPage: true,
+    }
+  },
+
+  created() {
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
+    const tickersData = localStorage.getItem("cryptonomicon-list");
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach(ticker => {
+        this.subscribeToUpdates(ticker.name)
+      })
     }
   },
 
   watch: {
     ticker(newTickerValue) {
       this.tickerExists = false
-    }
+    },
+    filter() {
+      this.page = 1;
+      window.history.pushState(null, '', `${window.location.pathname}?filter=${this.filter}&page=${this.page}`)
+    },
+    page() {
+      window.history.pushState(null, '', `${window.location.pathname}?filter=${this.filter}&page=${this.page}`)
+    },
   },
   
   methods: {
@@ -25,21 +53,11 @@ export default {
         return
       } 
       this.tickers.push(currentTicker);
-      setInterval(async () => {
-        const f = await fetch(
-        `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=6ad143f5e897da3cbdfaccb63647a2b2192b4849cc37d69ce7ba61dac5fb6662`
-        );
-      
-      const data = await f.json();
-      
-      this.tickers.find(t => t.name === currentTicker.name).price = 
-        data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-  
-      if (this.selected?.name === currentTicker.name) {
-        this.graph.push(data.USD)
-      }
-    }, 5000)
-    this.ticker='';
+
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers))
+      this.subscribeToUpdates(currentTicker.name);
+      this.ticker='';
+      this.filter='';
     },
   
     selectTicker(ticker) {
@@ -49,6 +67,8 @@ export default {
 
     deleteTicker(tickerToDelete) {
       this.tickers = this.tickers.filter(t => t !== tickerToDelete);
+      localStorage.removeItem("cryptonomicon-list");
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
     },
 
     normalizeGraph() {
@@ -57,7 +77,32 @@ export default {
     return this.graph.map(
     price => 5 + ((price - minValue) * 95) / (maxValue - minValue))
     },
-  }
+
+    filteredTickers() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+      const filteredTickers = this.tickers.filter(t => t.name.includes(this.filter));
+      this.hasNextPage = filteredTickers.length > end;
+      return filteredTickers.slice(start, end);
+    },
+
+    subscribeToUpdates(tickerName) {
+      setInterval(async () => {
+        const f = await fetch(
+        `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=6ad143f5e897da3cbdfaccb63647a2b2192b4849cc37d69ce7ba61dac5fb6662`
+        );
+      
+      const data = await f.json();
+      
+      this.tickers.find(t => t.name === tickerName).price = 
+        data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+  
+      if (this.selected?.name === tickerName) {
+        this.graph.push(data.USD)
+      }
+    }, 5000)
+    }
+}
 }
 
 </script>
@@ -81,20 +126,6 @@ export default {
               class="block w-full p-1 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
               placeholder="Например DOGE"
             />
-          </div>
-          <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BTC
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              DOGE
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BCH
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              CHD
-            </span>
           </div>
           <div v-if="tickerExists" class="text-sm text-red-600">Такой тикер уже добавлен</div>
         </div>
@@ -120,10 +151,30 @@ export default {
         Добавить
       </button>
     </section>
+    <hr class="w-full border-t border-gray-600 my-4" />
+    <div className="">
+      <div className="flex gap-2">
+        <label>Фильтр</label>
+        <input v-model="filter" type="text">
+      </div>
+      <button
+        v-if="page > 1"
+        @click="page = page - 1"
+        className="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+      >
+      Назад</button>
+      <button
+        v-if="hasNextPage"
+        @click="page = page + 1"
+        className="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+      
+      >
+      Вперёд</button>
+    </div>
       <hr v-if="tickers.length" class="w-full border-t border-gray-600 my-4" />
       <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
-          v-for="t in tickers"
+          v-for="t in filteredTickers()"
           :key="t.name"
           @click="selectTicker(t)"
           :class="{
