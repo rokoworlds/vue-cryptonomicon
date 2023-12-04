@@ -8,6 +8,8 @@ export default {
       selected: null,
       graph: [],
       tickerExists: false,
+      tickersList: [],
+      filter: '',
     }
   },
 
@@ -40,6 +42,7 @@ export default {
       }
     }, 5000)
     this.ticker='';
+    this.filter='';
     },
   
     selectTicker(ticker) {
@@ -57,7 +60,10 @@ export default {
     return this.graph.map(
     price => 5 + ((price - minValue) * 95) / (maxValue - minValue))
     },
-  }
+    filteredTickers() {
+      return this.tickers.filter(t => t.name.includes(this.filter));
+    }
+}
 }
 
 </script>
@@ -81,20 +87,6 @@ export default {
               class="block w-full p-1 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
               placeholder="Например DOGE"
             />
-          </div>
-          <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BTC
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              DOGE
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BCH
-            </span>
-            <span class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              CHD
-            </span>
           </div>
           <div v-if="tickerExists" class="text-sm text-red-600">Такой тикер уже добавлен</div>
         </div>
@@ -120,10 +112,16 @@ export default {
         Добавить
       </button>
     </section>
+    <div>
+      <div className="flex gap-2">
+        <label>Фильтер</label>
+        <input v-model="filter" type="text">
+      </div>
+    </div>
       <hr v-if="tickers.length" class="w-full border-t border-gray-600 my-4" />
       <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
-          v-for="t in tickers"
+          v-for="t in filteredTickers()"
           :key="t.name"
           @click="selectTicker(t)"
           :class="{
