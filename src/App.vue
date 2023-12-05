@@ -9,6 +9,8 @@
 // [ ] График выглядит плохо если много цен
 // [ ] При удалении тикера не изменяется ЛС
 // [ ] ЛС и анонимные владки
+// [x] График сломан если везде одинаковые значения
+// [x] При удалении тикера остается поле выбора
 
 
 
@@ -16,35 +18,50 @@ export default {
   data() {
     return {
       ticker: '',
-      tickers: [],
-      selected: null,
-      graph: [],
-      tickerExists: false,
-      tickersList: [],
       filter: '',
+      
+      tickers: [],
+      graph: [],
+      selectedTicker: null,
+      
+      tickerExists: false,
       page: 1,
     }
   },
 
   computed: {
+    pageStateOptions() {
+      return {
+        filter: this.filter,
+        page: this.page,
+      }
+    },
     startIndex() {
       return (this.page - 1) * 6;
     },
+
     endIndex() {
       return this.page * 6;
     },
+
     filteredTickers() {
       return this.tickers.filter(t => t.name.includes(this.filter));
     },
+
     paginatedTickers() {
       return this.filteredTickers.slice(this.startIndex, this.endIndex);
     },
+
     hasNextPage() {
       return this.filteredTickers.length > this.endIndex;
     },
+
     normalizedGraph() {
     const maxValue = Math.max(...this.graph);
     const minValue = Math.min(...this.graph);
+    if (maxValue === minValue) {
+      return this.graph.map(() => 50);
+    }
     return this.graph.map(
     price => 5 + ((price - minValue) * 95) / (maxValue - minValue))
     },
@@ -67,19 +84,6 @@ export default {
     }
   },
 
-  watch: {
-    ticker(newTickerValue) {
-      this.tickerExists = false
-    },
-    filter() {
-      this.page = 1;
-      window.history.pushState(null, '', `${window.location.pathname}?filter=${this.filter}&page=${this.page}`)
-    },
-    page() {
-      window.history.pushState(null, '', `${window.location.pathname}?filter=${this.filter}&page=${this.page}`)
-    },
-  },
-  
   methods: {
     createNewTicker() {
       const currentTicker = {name: this.ticker, price: '-'};
@@ -87,26 +91,22 @@ export default {
         this.tickerExists = true;
         return
       } 
-      this.tickers.push(currentTicker);
-
-      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers))
-      this.subscribeToUpdates(currentTicker.name);
+      this.tickers = [...this.tickers, currentTicker];
       this.ticker='';
       this.filter='';
+      this.subscribeToUpdates(currentTicker.name);
     },
   
     selectTicker(ticker) {
-        this.selected = ticker;
-        this.graph = [];
+        this.selectedTicker = ticker;
     },
 
     deleteTicker(tickerToDelete) {
       this.tickers = this.tickers.filter(t => t !== tickerToDelete);
-      localStorage.removeItem("cryptonomicon-list");
-      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
+      if (this.selectedTicker === tickerToDelete) {
+        this.selectedTicker = null;
+      }
     },
-
-
 
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
@@ -119,12 +119,40 @@ export default {
       this.tickers.find(t => t.name === tickerName).price = 
         data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
   
-      if (this.selected?.name === tickerName) {
+      if (this.selectedTicker?.name === tickerName) {
         this.graph.push(data.USD)
       }
     }, 5000)
     }
-}
+},
+
+  watch: {
+    tickers() {
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers))
+    },
+
+    selectedTicker() {
+      this.graph = []
+    },
+
+    paginatedTickers() {
+      if (this.paginatedTickers.length === 0 && this.page > 1) {
+        this.page -= 1;
+      }
+    },
+
+    ticker(newTickerValue) {
+      this.tickerExists = false
+    },
+
+    filter() {
+      this.page = 1;
+    },
+
+    pageStateOptions(value) {
+      window.history.pushState(null, '', `${window.location.pathname}?filter=${value.filter}&page=${value.page}`)
+    },
+  },  
 }
 
 </script>
@@ -200,7 +228,7 @@ export default {
           :key="t.name"
           @click="selectTicker(t)"
           :class="{
-            'border-4': selected === t
+            'border-4': selectedTicker === t
           }"
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
         >
@@ -234,9 +262,9 @@ export default {
       </dl>
       <hr v-if="tickers.length" class="w-full border-t border-gray-600 my-4" />
       
-      <section v-if="selected" class="relative">
+      <section v-if="selectedTicker" class="relative">
             <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-              {{ selected.name }} - USD
+              {{ selectedTicker.name }} - USD
             </h3>
             <div class="flex items-end border-gray-600 border-b border-l h-64">
               <div
@@ -248,7 +276,7 @@ export default {
 
             </div>
             <button
-              @click="selected = null"
+              @click="selectedTicker = null"
               type="button"
               class="absolute top-0 right-0"
             >
