@@ -1,18 +1,18 @@
 <script>
-// [ ] Одинаковый код в watch
+// [x] Одинаковый код в watch
 // [ ] При удалении остается подписка на загрузку тикера
 // [ ] Количество запросов
 // [ ] Сильная связанность логики и данных которые влияют на отображение
 // [ ] Обработка ошибок АПИ
 // [ ] Магические строки и числа (УРЛ, 5000, ключ от АПИ, кол-во ед на стр)
-// [ ] Наличие в состоянии зависимых данных
+// [x] Наличие в состоянии зависимых данных
 // [ ] График выглядит плохо если много цен
-// [ ] При удалении тикера не изменяется ЛС
+// [x] При удалении тикера не изменяется ЛС
 // [ ] ЛС и анонимные владки
 // [x] График сломан если везде одинаковые значения
 // [x] При удалении тикера остается поле выбора
 
-
+import { loadTicker } from './api';
 
 export default {
   data() {
@@ -110,11 +110,7 @@ export default {
 
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
-        const f = await fetch(
-        `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=6ad143f5e897da3cbdfaccb63647a2b2192b4849cc37d69ce7ba61dac5fb6662`
-        );
-      
-      const data = await f.json();
+        const data = loadTicker(tickerName);
       
       this.tickers.find(t => t.name === tickerName).price = 
         data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
