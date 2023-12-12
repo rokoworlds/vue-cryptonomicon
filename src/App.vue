@@ -78,10 +78,8 @@ export default {
     const tickersData = localStorage.getItem("cryptonomicon-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
-      this.tickers.forEach(ticker => {
-        this.subscribeToUpdates(ticker.name)
-      })
     }
+    setInterval(this.updateTickers, 5000);
   },
 
   methods: {
@@ -94,7 +92,6 @@ export default {
       this.tickers = [...this.tickers, currentTicker];
       this.ticker='';
       this.filter='';
-      this.subscribeToUpdates(currentTicker.name);
     },
   
     selectTicker(ticker) {
@@ -108,18 +105,23 @@ export default {
       }
     },
 
-    subscribeToUpdates(tickerName) {
-      setInterval(async () => {
-        const data = loadTicker(tickerName);
-      
-      this.tickers.find(t => t.name === tickerName).price = 
-        data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-  
-      if (this.selectedTicker?.name === tickerName) {
-        this.graph.push(data.USD)
+    async updateTickers() {
+      if (!this.tickers.length) {
+        return;
       }
-    }, 5000)
-    }
+      const exchangeData = await loadTicker(this.tickers.map(t => t.name));
+      this.tickers.forEach(ticker => {
+        const price = exchangeData[ticker.name.toUpperCase()];
+        
+        if (!price) {
+          ticker.price = '=';
+          return;
+        }
+
+        const normalizedPrice = 1 / price;
+        const formatedPrice = normalizedPrice > 1 ? normalizedPrice.toFixed(2) : normalizedPrice.toPrecision(2);
+        ticker.price = formatedPrice;
+      })
 },
 
   watch: {
@@ -148,7 +150,8 @@ export default {
     pageStateOptions(value) {
       window.history.pushState(null, '', `${window.location.pathname}?filter=${value.filter}&page=${value.page}`)
     },
-  },  
+  }  
+}
 }
 
 </script>
