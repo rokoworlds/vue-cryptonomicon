@@ -12,7 +12,7 @@
 // [x] График сломан если везде одинаковые значения
 // [x] При удалении тикера остается поле выбора
 
-import { loadTicker } from './api';
+import { loadTickers } from './api';
 
 export default {
   data() {
@@ -83,6 +83,25 @@ export default {
   },
 
   methods: {
+    formatPrice(price) {
+      if (price === '-') {
+        return price;
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+    },
+
+    async updateTickers() {
+      if (!this.tickers.length) {
+        return;
+      }
+      const exchangeData = await loadTickers(this.tickers.map(t => t.name));
+      
+      this.tickers.forEach(ticker => {
+        const price = exchangeData[ticker.name.toUpperCase()];
+        ticker.price = price ?? '-';
+      })
+    },
+
     createNewTicker() {
       const currentTicker = {name: this.ticker, price: '-'};
       if (this.tickers.some(obj => obj.name === this.ticker)) {
@@ -104,26 +123,7 @@ export default {
         this.selectedTicker = null;
       }
     },
-
-    async updateTickers() {
-      if (!this.tickers.length) {
-        return;
-      }
-      const exchangeData = await loadTicker(this.tickers.map(t => t.name));
-      this.tickers.forEach(ticker => {
-        const price = exchangeData[ticker.name.toUpperCase()];
-        
-        if (!price) {
-          ticker.price = '=';
-          return;
-        }
-
-        const normalizedPrice = 1 / price;
-        const formatedPrice = normalizedPrice > 1 ? normalizedPrice.toFixed(2) : normalizedPrice.toPrecision(2);
-        ticker.price = formatedPrice;
-      })
 },
-
   watch: {
     tickers() {
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers))
@@ -151,7 +151,6 @@ export default {
       window.history.pushState(null, '', `${window.location.pathname}?filter=${value.filter}&page=${value.page}`)
     },
   }  
-}
 }
 
 </script>
@@ -236,7 +235,7 @@ export default {
               {{ t.name }}
             </dt>
             <dd class="mt-1 text-3xl font-semibold text-gray-900">
-              {{ t.price }}
+              {{ formatPrice(t.price) }}
             </dd>
           </div>
           <div class="w-full border-t border-gray-200"></div>
