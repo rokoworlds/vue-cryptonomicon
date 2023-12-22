@@ -12,7 +12,7 @@
 // [x] График сломан если везде одинаковые значения
 // [x] При удалении тикера остается поле выбора
 
-import { loadTickers } from './api';
+import { subscribeToTicker, unsubscribeFromTicker } from './api';
 
 export default {
   data() {
@@ -27,6 +27,38 @@ export default {
       tickerExists: false,
       page: 1,
     }
+  },
+
+  created() {
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+
+    const VALID_KEYS = ["filter", "page"];
+
+    VALID_KEYS.forEach(key => {
+      if (windowData[key]) {
+        this[key] = windowData[key];
+      }
+    })
+
+    // if (windowData.filter) {
+    //   this.filter = windowData.filter;
+    // }
+    // if (windowData.page) {
+    //   this.page = windowData.page;
+    // }
+
+    const tickersData = localStorage.getItem("cryptonomicon-list");
+    
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach(ticker => {
+        subscribeToTicker(
+            ticker.name, newPrice => 
+              this.updateTicker(ticker.name, newPrice)
+            );
+      });
+    }
+    setInterval(this.updateTickers, 5000);
   },
 
   computed: {
@@ -67,22 +99,15 @@ export default {
     },
   },
 
-  created() {
-    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
-    if (windowData.filter) {
-      this.filter = windowData.filter;
-    }
-    if (windowData.page) {
-      this.page = windowData.page;
-    }
-    const tickersData = localStorage.getItem("cryptonomicon-list");
-    if (tickersData) {
-      this.tickers = JSON.parse(tickersData);
-    }
-    setInterval(this.updateTickers, 5000);
-  },
-
   methods: {
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter(t => t.name === tickerName)
+        .forEach(t => {
+          t.price = price
+        });
+    },
+
     formatPrice(price) {
       if (price === '-') {
         return price;
@@ -90,27 +115,28 @@ export default {
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
-    async updateTickers() {
-      if (!this.tickers.length) {
-        return;
-      }
-      const exchangeData = await loadTickers(this.tickers.map(t => t.name));
-      
-      this.tickers.forEach(ticker => {
-        const price = exchangeData[ticker.name.toUpperCase()];
-        ticker.price = price ?? '-';
-      })
-    },
+    // async updateTickers() {
+    //   if (!this.tickers.length) {
+    //     return;
+    //   }
+    //   const exchangeData = await loadTickers(this.tickers.map(t => t.name));
 
-    createNewTicker() {
+    //   this.tickers.forEach(ticker => {
+    //     const price = exchangeData[ticker.name.toUpperCase()];
+    //     ticker.price = price ?? '-';
+    //   })
+    // },
+
+    add() {
       const currentTicker = {name: this.ticker, price: '-'};
       if (this.tickers.some(obj => obj.name === this.ticker)) {
         this.tickerExists = true;
         return
       } 
       this.tickers = [...this.tickers, currentTicker];
-      this.ticker='';
+      this.ticker = '';
       this.filter='';
+      subscribeToTicker(currentTicker.name, newPrice => this.updateTicker(currentTicker.name, newPrice));
     },
   
     selectTicker(ticker) {
@@ -122,8 +148,10 @@ export default {
       if (this.selectedTicker === tickerToDelete) {
         this.selectedTicker = null;
       }
+      unsubscribeFromTicker(tickerToDelete.name);
     },
 },
+
   watch: {
     tickers() {
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers))
@@ -167,7 +195,7 @@ export default {
           <div class="mt-1 relative rounded-md shadow-md">
             <input
               v-model='ticker'
-              v-on:keydown.enter="createNewTicker()"
+              v-on:keydown.enter="add()"
               type="text"
               name="wallet"
               id="wallet"
@@ -179,7 +207,7 @@ export default {
         </div>
       </div>
       <button
-        @click="createNewTicker()"
+        @click="add()"
         type="button"
         class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
       >
