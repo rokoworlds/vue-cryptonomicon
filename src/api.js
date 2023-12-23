@@ -1,3 +1,5 @@
+// TODO: сделать чтобы при открытии нескольких владок за данными ходили только одна, и делилась со всеми остальными. (* - через LocalStorage, ** - BroadcastChannel) 
+
 const API_KEY = '6ad143f5e897da3cbdfaccb63647a2b2192b4849cc37d69ce7ba61dac5fb6662'
 
 const tickersHandlers = new Map();
@@ -7,7 +9,7 @@ const AGGREGATE_INDEX = '5';
 
 socket.addEventListener('message', e => {
     const { TYPE: type, FROMSYMBOL: currency, PRICE: newPrice} = JSON.parse(e.data);
-    if (type !== AGGREGATE_INDEX) {
+    if (type !== AGGREGATE_INDEX || newPrice === undefined) {
         return;
     }
 
